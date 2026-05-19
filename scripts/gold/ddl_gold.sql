@@ -1,3 +1,15 @@
+/*
+===============================================================================
+DDL Script: Create Gold Views
+===============================================================================
+Script Purpose:
+    This script creates views in the 'gold' schema, dropping existing views 
+    if they already exist.
+	  Run this script to re-define the DDL structure of 'gold' Views
+-- for data analytics and reporting
+===============================================================================
+*/
+
 IF OBJECT_ID('gold.dim_customers', 'V') IS NOT NULL
 DROP VIEW gold.dim_customers;
 GO
