@@ -93,7 +93,7 @@ DATEDIFF(month, last_order_date, GETDATE()) AS recency,
 total_orders,
 total_sales,
 total_quantity,
-total_products
+total_products,
 lifespan,
 -- Compute average order value (AVO)
 CASE WHEN total_sales = 0 THEN 0
