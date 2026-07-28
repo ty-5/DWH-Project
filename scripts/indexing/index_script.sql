@@ -118,3 +118,47 @@ INCLUDE (order_number, order_date, product_key, sales_amount, quantity);
 -- II : order_date — range filtering
 -- ============================================================
 
+SELECT
+    MIN(order_date) as earliest_date,
+    MAX(order_date) as latest_date
+FROM gold.fact_sales
+
+-- query for exec plan
+-- show all sales in the 4th quarter
+
+SELECT
+    sales_amount,
+    order_date
+FROM gold.fact_sales
+WHERE DATEPART(quarter, order_date) = 4
+ORDER BY YEAR(order_date) DESC, MONTH(order_date) DESC
+
+-- since I wrapped order_date into a function, the index from the previous section will not work
+-- because it is getting the quarter of every date before anything else, called a non-sargable-predicate. **revisit
+
+
+SELECT 
+    sales_amount,
+    order_date
+FROM gold.fact_sales
+WHERE order_date >= '2013-01-01' AND order_date <= '2014-01-01'
+
+-- earlier I calculated that are on average 54 rows per day for order_date
+-- which means a full year is about 32% of the entire table.
+-- in a scenario like this.. creating an index would likely not be usefull as the optimizer
+-- will default to a table scan 
+
+-- in order to showcase an index for the order_date column, let's hone in on a single month
+
+SELECT 
+    sales_amount,
+    order_date
+FROM gold.fact_sales
+WHERE order_date >= '2013-03-01' AND order_date < '2013-04-01'
+
+
+DROP INDEX IF EXISTS IX_fact_sales_order_date ON gold.fact_sales
+
+CREATE NONCLUSTERED INDEX IX_fact_sales_order_date
+ON gold.fact_sales (order_date)
+INCLUDE(sales_amount)
