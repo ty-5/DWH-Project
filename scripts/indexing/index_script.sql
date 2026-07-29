@@ -135,7 +135,7 @@ ORDER BY YEAR(order_date) DESC, MONTH(order_date) DESC
 
 -- since I wrapped order_date into a function, the index from the previous section will not work
 -- because it is getting the quarter of every date before anything else, called a non-sargable-predicate. **revisit
-
+-- to fix, will have to add an order_quarter col to the table so its seekable
 
 SELECT 
     sales_amount,
@@ -162,3 +162,43 @@ DROP INDEX IF EXISTS IX_fact_sales_order_date ON gold.fact_sales
 CREATE NONCLUSTERED INDEX IX_fact_sales_order_date
 ON gold.fact_sales (order_date)
 INCLUDE(sales_amount)
+
+-- ============================================================
+-- III : (customer_key, order_date) — composite key
+-- ============================================================
+
+-- finding the skewed product key to test the new index (295)
+
+SELECT TOP 1 product_key, COUNT(*) as row_count
+FROM gold.fact_sales
+GROUP BY product_key
+ORDER BY row_count DESC
+
+
+SELECT
+    product_key,
+    order_date,
+    sales_amount
+FROM gold.fact_sales
+WHERE product_key = 295
+    AND order_date >= '2013-01-01' AND order_date < '2013-04-01';
+
+-- running the above query as is yeilds a missing index message in the exec plan with 99% impact so this is
+-- a good place to try a composite index
+
+DROP INDEX IF EXISTS IX_fact_sales_product_key_order_date ON gold.fact_sales;
+
+CREATE NONCLUSTERED INDEX IX_fact_sales_product_key_order_date 
+ON gold.fact_sales (product_key, order_date)
+INCLUDE (sales_amount);
+
+SELECT
+    product_key,
+    order_date,
+    sales_amount
+FROM gold.fact_sales WITH (INDEX(IX_fact_sales_product_key_order_date))
+WHERE order_date >= '2013-01-01' AND order_date < '2013-04-01';
+
+-- since we are filtering on the secondmost argument in the composite index,
+-- it will not work. so what is being used is the order_date standalone index 
+-- from earlier
