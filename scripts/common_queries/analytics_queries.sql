@@ -116,3 +116,63 @@ SELECT
     total_sales - prev_month_sales AS change_in_sales_by_month
 FROM date_table_with_prev_month_sales
 ORDER BY date_year, date_month
+
+-- Find all customers whose total sales amount is above the average total sales amount across all customers
+
+SELECT TOP 10 * FROM gold.dim_customers
+SELECT TOP 10 * FROM gold.fact_sales
+
+WITH customer_totals AS (
+    SELECT
+        c.customer_id,
+        c.first_name,
+        c.last_name,
+        SUM(s.sales_amount) AS total_sales,
+        AVG(SUM(s.sales_amount)) OVER() AS average_total_sales
+    FROM gold.dim_customers c
+    JOIN gold.fact_sales s ON c.customer_key = s.customer_key
+    GROUP BY c.customer_id, c.first_name, c.last_name
+)
+
+SELECT *
+FROM customer_totals
+WHERE total_sales > average_total_sales
+
+-- Show total sales per year, but reshaped so each product category becomes its own column instead of its own row: 
+-- one row per year, with separate columns for Bikes, Clothing, and Accessories totals side by side.
+
+SELECT
+    YEAR(s.order_date) AS order_year,
+    SUM(CASE category
+        WHEN 'Bikes' THEN sales_amount
+        ELSE 0
+        END) AS 'Bikes',
+    SUM(CASE category
+        WHEN 'Clothing' THEN sales_amount
+        ELSE 0
+        END) AS 'Clothing',
+    SUM(CASE category
+        WHEN 'Accessories' THEN sales_amount
+        ELSE 0
+        END) AS 'Accessories'
+FROM gold.fact_sales s
+JOIN gold.dim_products p ON s.product_key = p.product_key
+GROUP BY YEAR(s.order_date)
+HAVING YEAR(s.order_date) IS NOT NULL
+ORDER BY order_year ASC
+
+-- Find pairs of products that are in the same category and have the exact same cost.
+
+SELECT
+    p1.product_name AS name1,
+    p2.product_name AS name2,
+    p1.product_key AS pk1,
+    p2.product_key AS pk2,
+    p1.category AS cat1,
+    p2.category AS cat2,
+    p1.cost AS cost1,
+    p2.cost AS cost2
+FROM gold.dim_products p1
+JOIN gold.dim_products p2 ON p1.category = p2.category AND p1.cost = p2.cost
+    AND p1.product_key < p2.product_key
+
