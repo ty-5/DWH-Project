@@ -176,3 +176,51 @@ FROM gold.dim_products p1
 JOIN gold.dim_products p2 ON p1.category = p2.category AND p1.cost = p2.cost
     AND p1.product_key < p2.product_key
 
+-- For each product category, rank products by cost from highest to lowest,
+-- computing the rank with both RANK() and DENSE_RANK() side by side in the same query.
+
+SELECT * FROM gold.dim_products
+
+SELECT
+    category,
+    product_name,
+    cost,
+    RANK() OVER(PARTITION BY category ORDER BY cost DESC) AS cost_rank,
+    DENSE_RANK() OVER(PARTITION BY category ORDER BY cost DESC) AS cost_dense_rank
+FROM gold.dim_products
+
+
+-- Using the same monthly sales aggregation from Problem 5 (total sales per year+month),
+-- add a column showing the running total of sales through that month — i.e.,
+-- cumulative sales from the start of the data up through and including each row.
+
+SELECT TOP 10 * FROM gold.fact_sales
+
+WITH monthly_sales_CTE AS (
+    SELECT
+        YEAR(order_date) AS order_year,
+        MONTH(order_date) AS order_month,
+        SUM(sales_amount) AS total_sales
+    FROM gold.fact_sales
+    WHERE order_date IS NOT NULL
+    GROUP BY YEAR(order_date), MONTH(order_date)
+)
+SELECT 
+    order_year,
+    order_month,
+    total_sales,
+    SUM(total_sales) OVER(ORDER BY order_year, order_month) AS running_total_sales_by_month
+FROM monthly_sales_CTE 
+
+-- find & delete duplicate rows in dim_customers
+
+WITH dedup_CTE AS (
+    SELECT
+        customer_number,
+        customer_key,
+        ROW_NUMBER() OVER (PARTITION BY customer_number ORDER BY customer_key) AS rn
+    FROM gold.dim_customers
+)
+DELETE FROM dedup_CTE
+WHERE rn > 1;
+
